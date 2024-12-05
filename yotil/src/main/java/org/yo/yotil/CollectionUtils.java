@@ -514,6 +514,25 @@ public class CollectionUtils {
         }
         return null;
     }
+    
+    /**
+     * 将集合进行分片
+     *
+     * @param <T>  元素类型
+     * @param t    集合
+     * @param size 每片个数
+     * @return 如果找到匹配的元素集合，则根据转换器转换类型后返回元素集合，否则返回null
+     * @author Kyle.Y.Li
+     * @since feature_41399 2024-04-09 16:24:11
+     */
+    public static <T> List<List<T>> partition(List<T> t, int size) {
+        if (isNullOrEmpty(t)) {
+            return null;
+        }
+        return (t instanceof RandomAccess)
+                ? new RandomAccessPartition<>(t, size)
+                : new Partition<>(t, size);
+    }
 
     /**
      * 根据字段排序
