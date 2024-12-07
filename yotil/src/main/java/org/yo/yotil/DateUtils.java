@@ -11,17 +11,21 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
-import java.util.TimeZone;
+import java.util.Set;
 
 /**
- *  时间操作的帮助类
+ * 时间操作的帮助类
  *
  * @author Kyle.Y.Li
  * @since 1.0.0 12/05/2024 16:03:58 16:03
  */
 public class DateUtils {
+    public static final ZoneId PST_ZONE_ID = ZoneId.of("America/Los_Angeles");
+    public static final ZoneId UTC_ZONE_ID = ZoneId.of("UTC");
+    public static final ZoneId CHN_ZONE_ID = ZoneId.of("Asia/Shanghai");
+    
     public static Date tryParseDate(final String value, final String... patterns) {
-        return tryParseDate(value, TimeZone.getDefault().toZoneId(), patterns);
+        return tryParseDate(value, java.util.TimeZone.getDefault().toZoneId(), patterns);
     }
     
     public static Date tryParseDate(final String value, final ZoneId zoneId, final String... patterns) {
@@ -34,7 +38,7 @@ public class DateUtils {
             }
             try {
                 SimpleDateFormat format = new SimpleDateFormat(pattern);
-                format.setTimeZone(TimeZone.getTimeZone(zoneId));
+                format.setTimeZone(java.util.TimeZone.getTimeZone(zoneId));
                 return format.parse(value);
             } catch (RuntimeException | ParseException ignore) {
             }
@@ -42,11 +46,11 @@ public class DateUtils {
         return null;
     }
     
-    public static String tryFormatDateDate(final Date value, final String... patterns) {
-        return tryFormatDateDate(value, TimeZone.getDefault().toZoneId(), patterns);
+    public static String tryFormatDate(final Date value, final String... patterns) {
+        return tryFormatDate(value, java.util.TimeZone.getDefault().toZoneId(), patterns);
     }
     
-    public static String tryFormatDateDate(final Date value, final ZoneId zoneId, final String... patterns) {
+    public static String tryFormatDate(final Date value, final ZoneId zoneId, final String... patterns) {
         if (value == null || patterns == null) {
             return null;
         }
@@ -56,7 +60,7 @@ public class DateUtils {
             }
             try {
                 SimpleDateFormat format = new SimpleDateFormat(pattern);
-                format.setTimeZone(TimeZone.getTimeZone(zoneId));
+                format.setTimeZone(java.util.TimeZone.getTimeZone(zoneId));
                 return format.format(value);
             } catch (RuntimeException ignore) {
             }
@@ -79,7 +83,7 @@ public class DateUtils {
         return Date.from(value.atZone(ZoneId.systemDefault()).toInstant());
     }
     
-    public static Timestamp parseTimestamp(final String value, final String... patterns) {
+    public static Timestamp tryParseTimestamp(final String value, final String... patterns) {
         if (StringUtils.isBlank(value) || patterns == null) {
             return null;
         }
@@ -97,16 +101,33 @@ public class DateUtils {
         return new Timestamp(value.getTime());
     }
     
+    public static LocalDateTime getDateTimeNow() {
+        return LocalDateTime.now();
+    }
+    
     public static LocalDateTime getDateTimeNow(final ZoneId zoneId) {
         return LocalDateTime.now(zoneId);
     }
     
-    public static LocalDateTime parseLocalDateTime(final String value, final String pattern, final ZoneId zoneId) {
-        if (StringUtils.isBlank(value)) {
+    public static LocalDateTime tryParseLocalDateTime(final String value, final String... patterns) {
+        return tryParseLocalDateTime(value, ZoneId.systemDefault(), patterns);
+    }
+    
+    public static LocalDateTime tryParseLocalDateTime(final String value, final ZoneId zoneId, final String... patterns) {
+        if (StringUtils.isBlank(value) || patterns == null) {
             return null;
         }
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern).withZone(zoneId);
-        return LocalDateTime.parse(value, formatter);
+        for (String pattern : patterns) {
+            if (StringUtils.isBlank(pattern)) {
+                continue;
+            }
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern).withZone(zoneId);
+                return LocalDateTime.parse(value, formatter);
+            } catch (RuntimeException ignore) {
+            }
+        }
+        return null;
     }
     
     public static LocalDateTime parseLocalDateTime(final Date value, final ZoneId zoneId) {
@@ -124,11 +145,25 @@ public class DateUtils {
         return Instant.ofEpochMilli(millis).atZone(zoneId).toLocalDateTime();
     }
     
-    public static String formatLocalDateTime(final LocalDateTime value, final String pattern) {
-        if (value == null) {
+    public static String tryFormatLocalDateTime(final LocalDateTime value, final String... patterns) {
+        return tryFormatLocalDateTime(value, ZoneId.systemDefault(), patterns);
+    }
+    
+    public static String tryFormatLocalDateTime(final LocalDateTime value, final ZoneId zoneId, final String... patterns) {
+        if (value == null || patterns == null) {
             return null;
         }
-        return value.format(DateTimeFormatter.ofPattern(pattern));
+        for (String pattern : patterns) {
+            if (StringUtils.isBlank(pattern)) {
+                continue;
+            }
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern).withZone(zoneId);
+                return formatter.format(value);
+            } catch (RuntimeException ignore) {
+            }
+        }
+        return null;
     }
     
     /**
@@ -136,44 +171,46 @@ public class DateUtils {
      *
      * @param sourceDate    原头时间
      * @param sourcePattern 原头时间格式
+     * @param sourceZoneId  原头时间时区
      * @param targetPattern 目标时间格式
      * @param targetZoneId  目标时间时区
      * @return 字符串时间
      */
-    public static String formatDateWithZone(final String sourceDate, final String sourcePattern, final String targetPattern, final ZoneId targetZoneId) {
+    public static String formatDateWithZone(final String sourceDate, final String sourcePattern, final ZoneId sourceZoneId, final String targetPattern, final ZoneId targetZoneId) {
         if (sourceDate == null) {
             return null;
         }
         //source
-        DateTimeFormatter sourceFormatter = DateTimeFormatter.ofPattern(sourcePattern);
+        DateTimeFormatter sourceFormatter = DateTimeFormatter.ofPattern(sourcePattern).withZone(sourceZoneId);
+        ZonedDateTime sourceZonedDateTime = ZonedDateTime.parse(sourceDate, sourceFormatter);
         //target
-        ZonedDateTime targetZonedDateTime = ZonedDateTime.parse(sourceDate, sourceFormatter);
-        if (targetZoneId != null) {
-            targetZonedDateTime = targetZonedDateTime.withZoneSameInstant(targetZoneId);
-        }
-        DateTimeFormatter targetFormatter = DateTimeFormatter.ofPattern(targetPattern);
-        return targetFormatter.format(targetZonedDateTime);
+        DateTimeFormatter targetFormatter = DateTimeFormatter.ofPattern(targetPattern).withZone(targetZoneId);
+        //convert
+        return targetFormatter.format(sourceZonedDateTime);
     }
     
-    /**
-     * 将 sourceDate 的转换为 targetZoneId 时区的字符串时间
-     *
-     * @param sourceDate    原头时间
-     * @param sourcePattern 原头时间格式
-     * @param targetPattern 目标时间格式
-     * @param targetZoneId  目标时间时区
-     * @return 字符串时间
-     */
-    public static String formatDate(final String sourceDate, final String sourcePattern, final String targetPattern, final ZoneId targetZoneId) {
-        if (sourceDate == null) {
-            return null;
-        }
-        //source
-        Date sourcedDate = parseDate(sourceDate, sourcePattern);
-        if (sourcedDate == null) {
-            return null;
-        }
-        //target
-        return formatDate(sourcedDate, targetPattern, TimeZone.getTimeZone(targetZoneId));
+    public static void main(String[] args) {
+        Set<String> availableZones = ZoneId.getAvailableZoneIds();
+        availableZones.forEach(System.out::println);
+        
+        var x1 = DateUtils.tryParseDate("2024/12/06 17:26:20.333", "yyyy/MM/dd HH:mm:ss");
+        var x2 = DateUtils.tryFormatDate(x1, "MM/dd/yyyy HH:mm:ss");
+        
+        var x3 = DateUtils.tryParseDate("2024/12/06 17:26:20.333", PST_ZONE_ID, "yyyy/MM/dd HH:mm:ss");
+        var x4 = DateUtils.tryFormatDate(x3, java.util.TimeZone.getDefault().toZoneId(), "MM/dd/yyyy HH:mm:ss");
+        
+        var x5 = DateUtils.parseDate(System.currentTimeMillis());
+        
+        var x6 = DateUtils.parseDate(DateUtils.getDateTimeNow());
+        
+        var x7 = DateUtils.tryParseTimestamp("2024/12/06 17:26:20.333", "yyyy/MM/dd HH:mm:ss");
+        
+        var x8 = DateUtils.tryParseLocalDateTime("2024/12/06 17:26:20.333", "yyyy/MM/dd HH:mm:ss");
+        
+        var x9 = DateUtils.parseLocalDateTime(System.currentTimeMillis(), java.util.TimeZone.getDefault().toZoneId());
+        
+        var x10 = DateUtils.tryFormatLocalDateTime(x9, "yyyy/MM/dd HH:mm:ss");
+        
+        var x11 = DateUtils.formatDateWithZone("2024/12/07 09:44:20", "yyyy/MM/dd HH:mm:ss", java.util.TimeZone.getDefault().toZoneId(), "MM/dd/yyyy HH:mm:ss", PST_ZONE_ID);
     }
 }
